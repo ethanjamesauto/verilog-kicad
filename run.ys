@@ -1,7 +1,7 @@
 read_verilog *.v
-synth -top cpu
+synth -top test2
 dfflibmap -liberty liberty/74ac.lib
-abc -liberty liberty/74ac.lib
-write_verilog riscv_s.sv
-dump -o riscv_s.net cpu
+abc -liberty liberty/basic.lib
+write_verilog out.sv
+dump -o out.net
 stat -liberty liberty/74ac.lib

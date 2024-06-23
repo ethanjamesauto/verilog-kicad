@@ -13,17 +13,19 @@ def assemble_dict(fn):
         for l in f.readlines():
             if not l.startswith(' ') and 'ABC RESULTS:' in l and '74AC' in l:
                 str = l[l.find('74AC'):].split(' ')
-                dict[str[0]] = int(str[-1])
-            if '$_DFF_P_ cells to' in l:
+                partstr = str[0]
+                flopcnt = int(str[-1])
+            elif '$_DFF_P_ cells to' in l:
                 str = l.strip().split(' ')
                 partstr = str[5][1:]
-                partcnt = partstr[partstr.find('_')+1:partstr.find('x')]
                 flopcnt = int(str[1])
-                # flopcnt += ceil(int(partcnt) / int(str[1]))
-                if partstr in dict.keys():
-                    dict[partstr] += flopcnt
-                else:
-                    dict[partstr] = flopcnt
+            else:
+                continue
+
+            if partstr in dict.keys():
+                dict[partstr] += flopcnt
+            else:
+                dict[partstr] = flopcnt
                 
     return dict
 
