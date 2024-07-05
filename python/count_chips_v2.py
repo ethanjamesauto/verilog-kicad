@@ -31,7 +31,7 @@ def assemble_dict(fn):
 
 counts = assemble_dict(sys.argv[1])
 
-print('IC usage: (unused gates)')
+print('IC Name\t\t\tcount\t(unused gates)')
 
 cnt = 0
 total_left = 0
@@ -39,6 +39,11 @@ for key in counts.keys():
     chip_cnt = int(key[key.find('_')+1:key.find('x')])
     n = ceil(counts[key] / chip_cnt)
     leftover = chip_cnt - counts[key] % chip_cnt
+
+    # This seems to be necessary
+    if counts[key] % chip_cnt == 0: 
+        leftover = 0
+    
     total_left += leftover
     cnt += n
     print(key, ':', n, '(' + str(leftover) + ')', sep='\t')
