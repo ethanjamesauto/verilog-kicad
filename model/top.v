@@ -1,7 +1,7 @@
 // This module models the computer as a whole
 // and as such has no IOs. However, future IOs may be
 // added for simulating user IO.
-`timescale 1us/1ns
+`timescale 1us/1us
 
 module top;
 
@@ -47,6 +47,17 @@ cpu_card cpu_card0(
 	.int_n(int_n)
 );
 
+alu_card alu_card0(
+	.VCC(VCC),
+	.GND(GND),
+	.clk(clk),
+	.rst_n(rst_n),
+	.we(we),
+	.oe(oe),
+	.data(data),
+	.addr(addr),
+	.int_n(int_n)
+);
 
 // Below is motherboard logic (most of it is simulated and non-synthesizable)
 assign VCC = 1'b1;
