@@ -31,7 +31,7 @@ reg [7:0] alu_res;
 always @(*) begin
 	case (fs)
 		3'b000: alu_res = data + 1;
-		//3'b001: alu_res = data - 1;
+		3'b001: alu_res = data - 1;
 		default: alu_res = 8'bx;
 	endcase
 end
