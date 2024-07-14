@@ -63,6 +63,8 @@ alu_card alu_card0(
 assign VCC = 1'b1;
 assign GND = 1'b0;
 
+pullup(int_n);
+
 reg clk_gen, rst_n_gen;
 assign clk = clk_gen;
 assign rst_n = rst_n_gen;
