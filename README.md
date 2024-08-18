@@ -11,6 +11,7 @@ wire oe;			// active high
 wire int_n;			// pulled up by motherboard; driven down by any peripheral (could be used for interrupts)
 wire [7:0] data;
 wire [15:0] addr;	// 64k address space is suppored by default. More address bits may be added later
+wire [7:0] aux_bus;
 ```
 
 # Verilog to Kicad Converter
