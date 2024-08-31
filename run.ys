@@ -1,4 +1,6 @@
 read_verilog sources/*.v
+blackbox \74*
+flatten dumb_op_card
 synth -top dumb_op_card
 dfflibmap -liberty liberty/74ac.lib
 abc -liberty liberty/74ac.lib
