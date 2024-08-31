@@ -1,7 +1,7 @@
 read_verilog sources/*.v
-synth -top test
+synth -top dumb_op_card
 dfflibmap -liberty liberty/74ac.lib
-abc -liberty liberty/7400.lib
+abc -liberty liberty/74ac.lib
 write_verilog out.sv
 write_json out.json
 dump -o out.net

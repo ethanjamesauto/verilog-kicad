@@ -1,5 +1,5 @@
 // bare bones synthesizable module
-module test_tmp(
+module testtds(
 	input  [7:0] a,
 	input  [7:0] b,
 	output [7:0] c

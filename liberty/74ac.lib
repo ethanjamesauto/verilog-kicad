@@ -80,6 +80,20 @@ library(74series) {
         pin(Y) { direction: output; function: "(A*B*C*D)'"; }
     }
 
+    // 74AC30 single 8-input NAND
+    cell(74AC30_1x1NAND8) {
+        area: 12;
+        pin(A) { direction: input; }
+        pin(B) { direction: input; }
+        pin(C) { direction: input; }
+        pin(D) { direction: input; }
+        pin(E) { direction: input; }
+        pin(F) { direction: input; }
+        pin(G) { direction: input; }
+        pin(H) { direction: input; }
+        pin(Y) { direction: output; function: "(A*B*C*D*E*F*G*H)'"; }
+    }
+
     // 74AC32 quad 2-input OR gate
     cell(74AC32_4x1OR2) {
         area: 3;
