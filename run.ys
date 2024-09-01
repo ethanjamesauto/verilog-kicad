@@ -1,7 +1,6 @@
-read_verilog sources/*.v
+read_verilog sources/test2.v
 blackbox \74*                           # stop existing 74-series ICs from being synthesized into gates
-synth -top test2                        # synthesize the design
-flatten                                 # flatten the heirarchy so all gates and manually created 74-series ICs are at the top level
+synth -flatten -top test2               # synthesize the design
 dfflibmap -liberty liberty/less.lib
 abc -liberty liberty/less.lib
 write_verilog out.sv
