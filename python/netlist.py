@@ -21,6 +21,7 @@ footprints = {
 
 gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
 gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
+gate_build_clk = {}
 
 # # of gates per 74 series ic (example '74AC04_6x1NOT' returns 6)
 def gate_count(ic_type):
@@ -30,8 +31,8 @@ def gate_name_to_chip(ic_type):
     code = ic_type[ic_type.find('C')+1:ic_type.find('_')]
     return '74' + code
 
-def add_gate_to_chip(ic_type, wires, i):
-    ret = False
+def add_gate_to_IC(ic_type, wires, i):
+    added_new_IC = False
     # print(ic_type, wires)
     chip_name = gate_name_to_chip(ic_type)
     pinout = pinouts[chip_name]
@@ -52,11 +53,11 @@ def add_gate_to_chip(ic_type, wires, i):
             # print(pinout, netlist)
             m.Pads()[int(pinout['GND'])-1].SetNetCode(netlist[0].GetNetCode())
             m.Pads()[int(pinout['VCC'])-1].SetNetCode(netlist[1].GetNetCode())
-            print('Added (sythesized): ' + chip_name)
+            print('Added (synthesized): ' + chip_name)
 
         else:
             m = chip_name + ' ' + ic_type
-        ret = True
+        added_new_IC = True
         gate_list.append(m)
         gate_build_ctr[ic_type] = 1
     else:
@@ -71,16 +72,25 @@ def add_gate_to_chip(ic_type, wires, i):
         else:
             new_name = str(gate_num) + wire_name
 
-        if wire_name == 'CLK': # TODO: oh dear
+        if wire_name == 'CLK':
             new_name = wire_name
 
         assert len(wires[wire_name]) == 1
-        wire = int(wires[wire_name][0]) # TODO: prob collapses vcc and gnd to 0 1
+        wire = int(wires[wire_name][0])
+
+        if wire_name == 'CLK':
+            if added_new_IC:
+                gate_build_clk[chip_name] = wire
+            assert gate_build_clk[chip_name] == wire, 'Placement failed - tried to add flip-flop to IC with existing clock net ' \
+                + str(gate_build_clk[chip_name]) + ', new clock net is ' + str(wire)
+            # print('Added flip-flop to IC with existing clock net', wire)
+
         pin_num = pinout[new_name]
         if KICAD:
             m.Pads()[int(pin_num)-1].SetNetCode(netlist[wire].GetNetCode())
+    print('Added %s to %s at position %d of %d' % (ic_type, chip_name, gate_num, chip_gate_cnt))
 
-    return ret # True if a new chip was added
+    return added_new_IC # True if a new chip was added
 
 
 
@@ -156,8 +166,8 @@ modules = js['modules']
 
 top = modules[top_level_module]
 
+# Add the nets featured in the top-level module
 netlist = {}
-
 for k in top['ports']:
     port = top['ports'][k]
     bits = port['bits']
@@ -171,7 +181,17 @@ for k in top['ports']:
 
 # print('IO ports:', netlist)
 
-# TODO Here: add kicad nets
+# if there are no VCC and GND nets, create them now
+if 0 not in netlist.keys():
+    print('Note: Adding GND Net')
+    wire = 0
+    netlist[wire] = 'GND'
+if 1 not in netlist.keys():
+    print('Note: Adding VCC Net')
+    wire = 1
+    netlist[wire] = 'VCC'
+
+# Add nets to the kicad schematic
 if KICAD:
     ftprt = 'PinHeader_1x' + str(len(netlist.keys())) + '_P2.54mm_Vertical'
     print('Header Footprint: ' + ftprt);
@@ -185,16 +205,11 @@ if KICAD:
         netlist[key] = net
         m.Pads()[i].SetNetCode(net.GetNetCode())
         i += 1
-# end kicad net code
 
-
-
-# Pass 1 - add all nets and assign gates to chips
+# Pass 1 - add internal nets
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
-    if not ic_type.startswith('\\74'):# or ic_type.startswith('\\74AC'):
-        print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
-        continue
+    assert ic_type.startswith('\\74')
 
     wires = top['cells'][c]['connections']
 
@@ -212,30 +227,11 @@ for c in top['cells'].keys():
                 board.Add(net)
                 netlist[wire] = net
 
-# print('Full netlist:', netlist)
 
-# if there are no VCC and GND nets, create them now
-if KICAD:
-    if 0 not in netlist.keys():
-        print('Note: Adding GND Net')
-        wire = 0
-        net = pb.NETINFO_ITEM(board, 'GND')
-        board.Add(net)
-        netlist[wire] = net
-    if 1 not in netlist.keys():
-        print('Note: Adding VCC Net')
-        wire = 1
-        net = pb.NETINFO_ITEM(board, 'VCC')
-        board.Add(net)
-        netlist[wire] = net
-
-# pass 1.5
+# Pass 2 - Turn synthesized gates into ICs and add them to the schematic
 i = 0
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
-    if not ic_type.startswith('\\74'):# or ic_type.startswith('\\74AC'):
-        print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
-        continue
 
     wires = top['cells'][c]['connections']
 
@@ -245,17 +241,15 @@ for c in top['cells'].keys():
         # see if this type exists in gate builder
         if ic_type not in gate_build:
             gate_build[ic_type] = []
-        if add_gate_to_chip(ic_type, wires, i):
+        if add_gate_to_IC(ic_type, wires, i):
             i += 1
 
 
-# Pass 2 - add chips
+# Pass 3 - add manually created ICs
 i = 0
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
-    if not ic_type.startswith('\\74'):# or ic_type.startswith('\\74AC'):
-        # print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
-        continue
+
     # we've already added these
     if ic_type.startswith('\\74AC'):
         continue
