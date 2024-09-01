@@ -32,6 +32,9 @@ def gate_name_to_chip(ic_type):
     code = ic_type[ic_type.find('C')+1:ic_type.find('_')]
     return '74' + code
 
+# list of all ics added to board
+kicad_ic_list = []
+
 # global variables for add_gate_to_IC
 gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
 gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
@@ -52,8 +55,7 @@ def add_gate_to_IC(ic_type, wires, i):
         if KICAD:
             m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
             board.Add(m)
-            m.SetX(pb.pcbIUScale.mmToIU(i*30/2.54))
-            m.SetY(pb.pcbIUScale.mmToIU(50))
+            kicad_ic_list.append(m)
             m.SetReference(ic_type + '_' + str(i) + '_gen')
 
             # Tie VCC and GND
@@ -236,7 +238,7 @@ for c in top['cells'].keys():
 
 
 # Pass 2 - Turn synthesized gates into ICs and add them to the schematic
-i = 0
+chip_cnt = 0
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
 
@@ -248,12 +250,10 @@ for c in top['cells'].keys():
         # see if this type exists in gate builder
         if ic_type not in gate_build:
             gate_build[ic_type] = []
-        if add_gate_to_IC(ic_type, wires, i):
-            i += 1
-
+        if add_gate_to_IC(ic_type, wires, chip_cnt):
+            chip_cnt += 1
 
 # Pass 3 - add manually created ICs
-i = 0
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
 
@@ -270,10 +270,9 @@ for c in top['cells'].keys():
     # create footprint and position
     if KICAD:
         m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
-        m.SetX(pb.pcbIUScale.mmToIU(i*30/2.54))
-        m.SetY(pb.pcbIUScale.mmToIU(i*0))
         board.Add(m)
-        m.SetReference(ic_type + '_' + str(i))
+        kicad_ic_list.append(m)
+        m.SetReference(ic_type + '_' + str(chip_cnt))
         print('Added: ' + ic_type)
 
     for k in wires.keys():
@@ -286,7 +285,23 @@ for c in top['cells'].keys():
             pin_num = pinouts[ic_type][pin_name]
             m.Pads()[int(pin_num)-1].SetNetCode(netlist[wire].GetNetCode())
             # print(ic_type, pin_name, pin_num)
-    i += 1
+    chip_cnt += 1
+
+# position ICs on board
+side_len = int(round(len(kicad_ic_list)**.5))
+aspect = 2
+spacing = 20
+spacing_factor = 1.5
+side_len *= aspect
+print('Total # of ICs: %d' % len(kicad_ic_list))
+
+for i in range(len(kicad_ic_list)):
+    x = i % side_len
+    y = i // side_len
+    m = kicad_ic_list[i]
+    m.SetX(pb.pcbIUScale.mmToIU(x*spacing + 40))
+    m.SetY(pb.pcbIUScale.mmToIU(y*spacing*spacing_factor + 40))
 
 if KICAD:
     board.Save(board_path)
+    print('Board saved to %s' % board_path)
