@@ -1,8 +1,9 @@
 // bare bones synthesizable module
 module test2(
     input [1:0] fs,
-	input [15:0] a, b,
-    output [15:0] c
+	input [7:0] a, b,
+    output [7:0] c,
+    input clk
 );
 
 parameter ADD = 2'd0;
@@ -10,7 +11,7 @@ parameter SUB = 2'd1;
 parameter XOR = 2'd2;
 parameter NAND = 2'd3;
 
-always @(*) begin
+always @(posedge clk) begin
     if (fs == 2'd0) c = a + b;
     else if (fs == 2'd1) c = a << 1;
     else if (fs == 2'd2) c = a >> 1;

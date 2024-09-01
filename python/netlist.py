@@ -6,11 +6,11 @@ json_path = '../out.json'
 top_level_module = 'test2'
 
 if KICAD:
+    import pcbnew as pb # type: ignore
     footprint_path = 'C:/Users/Ethan/Documents/Digital/lib/DIL Chips/74xx/**/**.dig'
     json_path = '\\\\wsl$\\Ubuntu\\home\\ethan\\verilog-kicad\\out.json'
     lib_path = 'C:/Program Files/KiCad/8.0/share/kicad/footprints/'
     board_path = 'C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog_kicad_test.kicad_pcb'
-    import pcbnew as pb
     board = pb.BOARD()
 
 footprints = {
