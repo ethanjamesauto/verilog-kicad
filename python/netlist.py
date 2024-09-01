@@ -1,5 +1,6 @@
 # exec(open("C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog-kicad.py").read())
-KICAD = True
+KICAD = False
+VERBOSE = False
 
 import json
 import glob
@@ -26,7 +27,8 @@ footprints = {
 
 gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
 gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
-gate_build_clk = {} # keep track of the current clock net for flip-flop ICs
+gate_build_clk_net = {} # keep track of the current clock net for flip-flop ICs
+gate_build_pins = {}
 
 # # of gates per 74 series ic (example '74AC04_6x1NOT' returns 6)
 def gate_count(ic_type):
@@ -65,6 +67,7 @@ def add_gate_to_IC(ic_type, wires, i):
         added_new_IC = True
         gate_list.append(m)
         gate_build_ctr[ic_type] = 1
+        gate_build_pins[chip_name] = []
     else:
         m = gate_list[-1]
         gate_build_ctr[ic_type] += 1
@@ -82,19 +85,28 @@ def add_gate_to_IC(ic_type, wires, i):
 
         assert len(wires[wire_name]) == 1
         wire = int(wires[wire_name][0])
+        pin_num = int(pinout[new_name])
 
         if wire_name == 'CLK':
             if added_new_IC:
-                gate_build_clk[chip_name] = wire
-            assert gate_build_clk[chip_name] == wire, 'Placement failed - tried to add flip-flop to IC with existing clock net ' \
-                + str(gate_build_clk[chip_name]) + ', new clock net is ' + str(wire)
-            # print('Added flip-flop to IC with existing clock net', wire)
+                gate_build_clk_net[chip_name] = wire
+            assert gate_build_clk_net[chip_name] == wire, 'Placement failed - tried to add flip-flop to IC with existing clock net ' \
+                + str(gate_build_clk_net[chip_name]) + ', new clock net is ' + str(wire)
+        else:
+            assert pin_num not in gate_build_pins[chip_name], 'Placement failed - attempted to re-assign pin'
 
-        pin_num = pinout[new_name]
         if KICAD:
-            m.Pads()[int(pin_num)-1].SetNetCode(netlist[wire].GetNetCode())
-    print('Added %s to %s at position %d of %d' % (ic_type, chip_name, gate_num, chip_gate_cnt))
+            m.Pads()[pin_num-1].SetNetCode(netlist[wire].GetNetCode())
+        if VERBOSE:
+            print('%s->%s->%d' % (wire_name, new_name, pin_num), end='\t')
+        
+        gate_build_pins[chip_name].append(pin_num)
 
+    if VERBOSE:
+        print()
+    print('Added %s to %s at position %d of %d' % (ic_type, chip_name, gate_num, chip_gate_cnt))
+    if VERBOSE:
+        print()
     return added_new_IC # True if a new chip was added
 
 def generate_pinouts(lib_74_path):
