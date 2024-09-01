@@ -1,9 +1,9 @@
 # exec(open("C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog-kicad.py").read())
 KICAD = True
 
-import json
 footprint_path = '../74xx/**/**.dig'
 json_path = '../out.json'
+top_level_module = 'sprite_2024_realctr'
 
 if KICAD:
     footprint_path = 'C:/Users/Ethan/Documents/Digital/lib/DIL Chips/74xx/**/**.dig'
@@ -20,6 +20,7 @@ footprints = {
 
 
 # generate pinouts
+import json
 import glob
 import os
 paths = glob.glob(footprint_path)
@@ -88,7 +89,7 @@ with open(json_path) as fp:
 
 modules = js['modules']
 
-top = modules['counter_card']
+top = modules[top_level_module]
 
 netlist = {}
 
@@ -103,12 +104,12 @@ for k in top['ports']:
             name = name + str(i)
         netlist[bit] = name
 
-print('IO ports:', netlist)
+# print('IO ports:', netlist)
 
 # TODO Here: add kicad nets
 if KICAD:
     ftprt = 'PinHeader_1x' + str(len(netlist.keys())) + '_P2.54mm_Vertical'
-    print('Header Footprint:' + ftprt);
+    print('Header Footprint: ' + ftprt);
     m = pb.FootprintLoad(lib_path + 'Connector_PinHeader_2.54mm.pretty', ftprt)
     board.Add(m)
 
@@ -125,7 +126,7 @@ if KICAD:
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
     if not ic_type.startswith('\\74') or ic_type.startswith('\\74AC'):
-        # print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
+        print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
         continue
 
     ic_type = ic_type.replace('\\', '') # remove backslashes
@@ -146,7 +147,7 @@ for c in top['cells'].keys():
                 board.Add(net)
                 netlist[wire] = net
 
-print('Full netlist:', netlist)
+# print('Full netlist:', netlist)
 
 # Pass 2 - add chips
 i = 0
@@ -165,7 +166,7 @@ for c in top['cells'].keys():
     # TODO here: create footprint and position
     if KICAD:
         m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
-        m.SetX(pb.pcbIUScale.mmToIU(i*25/2.54))
+        m.SetX(pb.pcbIUScale.mmToIU(i*30/2.54))
         m.SetY(pb.pcbIUScale.mmToIU(i*0))
         board.Add(m)
         m.SetReference(ic_type + '_' + str(i))
