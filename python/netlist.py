@@ -31,7 +31,12 @@ def add_gate_to_chip(ic_type, wires, i):
             m.SetX(pb.pcbIUScale.mmToIU(i*30/2.54))
             m.SetY(pb.pcbIUScale.mmToIU(50))
             m.SetReference(ic_type + '_' + str(i) + '_gen')
-            print('Added:' + str(m))
+
+            # Tie VCC and GND
+            # print(pinout, netlist)
+            m.Pads()[int(pinout['GND'])-1].SetNetCode(netlist[0].GetNetCode())
+            m.Pads()[int(pinout['VCC'])-1].SetNetCode(netlist[1].GetNetCode())
+            print('Added (sythesized): ' + chip_name)
 
         else:
             m = chip_name + ' ' + ic_type
@@ -213,6 +218,20 @@ for c in top['cells'].keys():
 
 # print('Full netlist:', netlist)
 
+# if there are no VCC and GND nets, creat them now
+if KICAD:
+    if 0 not in netlist.keys():
+        print('Note: Adding GND Net')
+        wire = 0
+        net = pb.NETINFO_ITEM(board, 'GND')
+        board.Add(net)
+        netlist[wire] = net
+    if 1 not in netlist.keys():
+        print('Note: Adding VCC Net')
+        wire = 1
+        net = pb.NETINFO_ITEM(board, 'VCC')
+        board.Add(net)
+        netlist[wire] = net
 
 # pass 1.5
 i = 0
@@ -258,7 +277,7 @@ for c in top['cells'].keys():
         m.SetY(pb.pcbIUScale.mmToIU(i*0))
         board.Add(m)
         m.SetReference(ic_type + '_' + str(i))
-        print('Added:' + str(m))
+        print('Added: ' + ic_type)
     # end footprint code
 
     for k in wires.keys():
