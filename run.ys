@@ -1,10 +1,10 @@
-read_verilog sources/*.v
+read_verilog sources/test2.v
 blackbox \74*
-flatten dumb_op_card
-synth -top dumb_op_card
-dfflibmap -liberty liberty/74ac.lib
-abc -liberty liberty/74ac.lib
+synth -top test2
+flatten
+dfflibmap -liberty liberty/less.lib
+abc -liberty liberty/less.lib
 write_verilog out.sv
 write_json out.json
 dump -o out.net
-stat -liberty liberty/74ac.lib
+stat -liberty liberty/less.lib
