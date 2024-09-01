@@ -105,6 +105,22 @@ for k in top['ports']:
 
 print('IO ports:', netlist)
 
+# TODO Here: add kicad nets
+if KICAD:
+    ftprt = 'PinHeader_1x' + str(len(netlist.keys())) + '_P2.54mm_Vertical'
+    print('Header Footprint:' + ftprt);
+    m = pb.FootprintLoad(lib_path + 'Connector_PinHeader_2.54mm.pretty', ftprt)
+    board.Add(m)
+
+    i = 0
+    for key in netlist.keys():
+        net = pb.NETINFO_ITEM(board, netlist[key])
+        board.Add(net)
+        netlist[key] = net
+        m.Pads()[i].SetNetCode(net.GetNetCode())
+        i += 1
+# end kicad net code
+
 # Pass 1 - add all nets
 for c in top['cells'].keys():
     type = top['cells'][c]['type']
@@ -124,15 +140,13 @@ for c in top['cells'].keys():
         if wire not in netlist.keys():
             netlist[wire] = 'n' + str(wire)
 
-print('Full netlist:', netlist)
+            # Some test code to add the external IOs to a header
+            if KICAD:
+                net = pb.NETINFO_ITEM(board, netlist[wire])
+                board.Add(net)
+                netlist[wire] = net
 
-# TODO Here: add kicad nets
-if KICAD:
-    for key in netlist.keys():
-        net = pb.NETINFO_ITEM(board, netlist[key])
-        board.Add(net)
-        netlist[key] = net
-# end kicad net code
+print('Full netlist:', netlist)
 
 # Pass 2 - add chips
 i = 0
@@ -151,7 +165,7 @@ for c in top['cells'].keys():
     # TODO here: create footprint and position
     if KICAD:
         m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
-        m.SetX(pb.pcbIUScale.mmToIU(i*50/2.54))
+        m.SetX(pb.pcbIUScale.mmToIU(i*25/2.54))
         m.SetY(pb.pcbIUScale.mmToIU(i*0))
         board.Add(m)
         m.SetReference(type + '_' + str(i))
@@ -168,7 +182,7 @@ for c in top['cells'].keys():
             pin_name = k.replace('\\', '')
             pin_num = pinouts[type][pin_name]
             m.Pads()[int(pin_num)-1].SetNetCode(netlist[wire].GetNetCode())
-            print(type, pin_name, pin_num)
+            # print(type, pin_name, pin_num)
         # end net code
 
     i += 1
