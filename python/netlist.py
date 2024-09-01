@@ -1,5 +1,5 @@
 # exec(open("C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog-kicad.py").read())
-KICAD = False
+KICAD = True
 VERBOSE = False
 
 import json
@@ -19,16 +19,10 @@ if KICAD:
     board_path = 'C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog_kicad_test.kicad_pcb'
     board = pb.BOARD()
 
-footprints = {
-    20: 'DIP-20_W7.62mm',
-    16: 'DIP-16_W7.62mm',
-    14: 'DIP-14_W7.62mm'
-    }
 
-gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
-gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
-gate_build_clk_net = {} # keep track of the current clock net for flip-flop ICs
-gate_build_pins = {}
+
+def get_footprint_name(num_pins):
+    return 'DIP-%d_W7.62mm' % num_pins
 
 # # of gates per 74 series ic (example '74AC04_6x1NOT' returns 6)
 def gate_count(ic_type):
@@ -38,12 +32,18 @@ def gate_name_to_chip(ic_type):
     code = ic_type[ic_type.find('C')+1:ic_type.find('_')]
     return '74' + code
 
+# global variables for add_gate_to_IC
+gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
+gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
+gate_build_clk_net = {} # keep track of the current clock net for flip-flop ICs
+gate_build_pins = {}
+
 def add_gate_to_IC(ic_type, wires, i):
     added_new_IC = False
     # print(ic_type, wires)
     chip_name = gate_name_to_chip(ic_type)
     pinout = pinouts[chip_name]
-    footprint = footprints[sizes[chip_name]]
+    footprint = get_footprint_name(sizes[chip_name])
 
     gate_list = gate_build[ic_type]
     chip_gate_cnt = gate_count(ic_type)
@@ -169,11 +169,8 @@ def generate_pinouts(lib_74_path):
 pinouts, sizes = generate_pinouts(footprint_path)
 
 # Parse yosys JSON
-with open(json_path) as fp:
-    js = json.load(fp)
-
+js = json.load(open(json_path))
 modules = js['modules']
-
 top = modules[top_level_module]
 
 # Add the nets featured in the top-level module
@@ -268,7 +265,7 @@ for c in top['cells'].keys():
     
     size = sizes[ic_type]            # get pinout size
     wires = top['cells'][c]['connections']
-    footprint = footprints[size]
+    footprint = get_footprint_name(size)
 
     # create footprint and position
     if KICAD:
