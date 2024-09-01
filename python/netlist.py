@@ -1,9 +1,70 @@
 # exec(open("C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog-kicad.py").read())
 KICAD = True
 
+# TODO: not the damn clocks
+
+gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
+gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
+
+# # of gates per 74 series ic (example '74AC04_6x1NOT' returns 6)
+def gate_count(ic_type):
+    return int(ic_type[ic_type.find('_')+1:ic_type.find('x')])
+
+def gate_name_to_chip(ic_type):
+    code = ic_type[ic_type.find('C')+1:ic_type.find('_')]
+    return '74' + code
+
+def add_gate_to_chip(ic_type, wires, i):
+    ret = False
+    # print(ic_type, wires)
+    chip_name = gate_name_to_chip(ic_type)
+    pinout = pinouts[chip_name]
+    footprint = footprints[sizes[chip_name]]
+
+    gate_list = gate_build[ic_type]
+    chip_gate_cnt = gate_count(ic_type)
+
+    if len(gate_list) == 0 or gate_build_ctr[ic_type] == chip_gate_cnt:
+        if KICAD:
+            m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
+            board.Add(m)
+            m.SetX(pb.pcbIUScale.mmToIU(i*30/2.54))
+            m.SetY(pb.pcbIUScale.mmToIU(50))
+            m.SetReference(ic_type + '_' + str(i) + '_gen')
+            print('Added:' + str(m))
+
+        else:
+            m = chip_name + ' ' + ic_type
+        ret = True
+        gate_list.append(m)
+        gate_build_ctr[ic_type] = 1
+    else:
+        m = gate_list[-1]
+        gate_build_ctr[ic_type] += 1
+
+    # rename gate wires to IC footprint pin names
+    gate_num = gate_build_ctr[ic_type]
+    for wire_name in wires:
+        if chip_name == '74374' or chip_name == '7474' or chip_name == '74273':
+            new_name = wire_name + str(gate_num - 1)
+        else:
+            new_name = str(gate_num) + wire_name
+
+        if wire_name == 'CLK': # TODO: oh dear
+            new_name = wire_name
+
+
+        wire = int(wires[wire_name][0]) # TODO: prob collapses vcc and gnd to 0 1
+        pin_num = pinout[new_name]
+        if KICAD:
+            m.Pads()[int(pin_num)-1].SetNetCode(netlist[wire].GetNetCode())
+
+    return ret # True if a new chip was added
+
+
 footprint_path = '../74xx/**/**.dig'
 json_path = '../out.json'
-top_level_module = 'sprite_2024_realctr'
+top_level_module = 'test2'
 
 if KICAD:
     footprint_path = 'C:/Users/Ethan/Documents/Digital/lib/DIL Chips/74xx/**/**.dig'
@@ -14,6 +75,7 @@ if KICAD:
     board = pb.BOARD()
 
 footprints = {
+    20: 'DIP-20_W7.62mm',
     16: 'DIP-16_W7.62mm',
     14: 'DIP-14_W7.62mm'
     }
@@ -122,16 +184,18 @@ if KICAD:
         i += 1
 # end kicad net code
 
-# Pass 1 - add all nets
+
+
+# Pass 1 - add all nets and assign gates to chips
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
-    if not ic_type.startswith('\\74') or ic_type.startswith('\\74AC'):
+    if not ic_type.startswith('\\74'):# or ic_type.startswith('\\74AC'):
         print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
         continue
 
-    ic_type = ic_type.replace('\\', '') # remove backslashes
-
     wires = top['cells'][c]['connections']
+
+    ic_type = ic_type.replace('\\', '') # remove backslashes
 
     for k in wires.keys():
         wire = wires[k]
@@ -149,12 +213,36 @@ for c in top['cells'].keys():
 
 # print('Full netlist:', netlist)
 
+
+# pass 1.5
+i = 0
+for c in top['cells'].keys():
+    ic_type = top['cells'][c]['type']
+    if not ic_type.startswith('\\74'):# or ic_type.startswith('\\74AC'):
+        print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
+        continue
+
+    wires = top['cells'][c]['connections']
+
+    if ic_type.startswith('\\74AC'):
+        # print(c, ic_type)
+
+        # see if this type exists in gate builder
+        if ic_type not in gate_build:
+            gate_build[ic_type] = []
+        if add_gate_to_chip(ic_type, wires, i):
+            i += 1
+
+
 # Pass 2 - add chips
 i = 0
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
-    if not ic_type.startswith('\\74') or ic_type.startswith('\\74AC'):
+    if not ic_type.startswith('\\74'):# or ic_type.startswith('\\74AC'):
         # print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
+        continue
+    # we've already added these
+    if ic_type.startswith('\\74AC'):
         continue
 
     ic_type = ic_type.replace('\\', '') # remove backslashes
