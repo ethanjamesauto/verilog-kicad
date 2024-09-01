@@ -123,12 +123,12 @@ if KICAD:
 
 # Pass 1 - add all nets
 for c in top['cells'].keys():
-    type = top['cells'][c]['type']
-    if not type.startswith('\\74') or type.startswith('\\74AC'):
-        # print('Error: ' + type + ' is not a 74-series IC! Skipping logic implementation\n')
+    ic_type = top['cells'][c]['type']
+    if not ic_type.startswith('\\74') or ic_type.startswith('\\74AC'):
+        # print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
         continue
 
-    type = type.replace('\\', '') # remove backslashes
+    ic_type = ic_type.replace('\\', '') # remove backslashes
 
     wires = top['cells'][c]['connections']
 
@@ -151,14 +151,14 @@ print('Full netlist:', netlist)
 # Pass 2 - add chips
 i = 0
 for c in top['cells'].keys():
-    type = top['cells'][c]['type']
-    if not type.startswith('\\74') or type.startswith('\\74AC'):
-        # print('Error: ' + type + ' is not a 74-series IC! Skipping logic implementation\n')
+    ic_type = top['cells'][c]['type']
+    if not ic_type.startswith('\\74') or ic_type.startswith('\\74AC'):
+        # print('Error: ' + ic_type + ' is not a 74-series IC! Skipping logic implementation\n')
         continue
 
-    type = type.replace('\\', '') # remove backslashes
+    ic_type = ic_type.replace('\\', '') # remove backslashes
     
-    size = sizes[type]            # get pinout size
+    size = sizes[ic_type]            # get pinout size
     wires = top['cells'][c]['connections']
     footprint = footprints[size]
 
@@ -168,7 +168,7 @@ for c in top['cells'].keys():
         m.SetX(pb.pcbIUScale.mmToIU(i*25/2.54))
         m.SetY(pb.pcbIUScale.mmToIU(i*0))
         board.Add(m)
-        m.SetReference(type + '_' + str(i))
+        m.SetReference(ic_type + '_' + str(i))
         print('Added:' + str(m))
     # end footprint code
 
@@ -180,15 +180,15 @@ for c in top['cells'].keys():
         # TODO here: add nets
         if KICAD:
             pin_name = k.replace('\\', '')
-            pin_num = pinouts[type][pin_name]
+            pin_num = pinouts[ic_type][pin_name]
             m.Pads()[int(pin_num)-1].SetNetCode(netlist[wire].GetNetCode())
-            # print(type, pin_name, pin_num)
+            # print(ic_type, pin_name, pin_num)
         # end net code
 
     i += 1
-    # print(type, end=':\n')
+    # print(ic_type, end=':\n')
     # print('\t', wires)
-    # print('\t', pinouts[type])
+    # print('\t', pinouts[ic_type])
 
 if KICAD:
     board.Save(board_path)
