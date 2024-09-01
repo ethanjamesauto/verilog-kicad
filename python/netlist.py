@@ -1,6 +1,11 @@
 # exec(open("C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog-kicad.py").read())
 KICAD = True
 
+import json
+import glob
+import os
+import xml.etree.ElementTree as ET
+
 footprint_path = '../74xx/**/**.dig'
 json_path = '../out.json'
 top_level_module = 'test2'
@@ -21,7 +26,7 @@ footprints = {
 
 gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
 gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
-gate_build_clk = {}
+gate_build_clk = {} # keep track of the current clock net for flip-flop ICs
 
 # # of gates per 74 series ic (example '74AC04_6x1NOT' returns 6)
 def gate_count(ic_type):
@@ -92,71 +97,64 @@ def add_gate_to_IC(ic_type, wires, i):
 
     return added_new_IC # True if a new chip was added
 
+def generate_pinouts(lib_74_path):
+    """Generate pinouts from 74xx lib"""
+    pinouts = {}
+    sizes = {}
+    paths = glob.glob(lib_74_path)
+    for path in paths:
+        chip_name = os.path.basename(path)
+        chip_name = chip_name[:chip_name.find('.dig')]
+        p = ET.parse(path).getroot()
+        pinout = {}
+        size = 0
+        visualElements = None # will contain all pins
+        for child in p:
+            if child.tag == 'visualElements':
+                visualElements = child
+                break
 
+        for ve_list in visualElements:
+            pin_name = None
+            for ve_list_item in ve_list:
+                if ve_list_item.tag == 'elementName':
+                    t = ve_list_item.text
+                if ve_list_item.tag == 'elementAttributes':
+                    for a in ve_list_item:
+                        check = False
+                        label = None
+                        for b in a:
+                            if b.tag == 'string':
+                                if not b.text == 'Label':
+                                    label = b.text
+                                else:
+                                    check = True
+                        if check:
+                            pin_name = label
+
+                    for a in ve_list_item:
+                        check1 = False
+                        num = None
+                        for b in a:
+                            if b.tag == 'string':
+                                if not b.text == 'pinNumber':
+                                    num = b.text
+                                else:
+                                    check1 = True
+                        if check1:
+                            pinout[pin_name] = num
+                            if int(num) > size:
+                                size = int(num)
+        sizes[chip_name] = size
+        pinouts[chip_name] = pinout
+    return pinouts, sizes
+
+
+
+# main code
 
 # generate pinouts
-import json
-import glob
-import os
-paths = glob.glob(footprint_path)
-paths
-
-import xml.etree.ElementTree as ET
-
-pinouts = {}
-sizes = {}
-for path in paths:
-    chip_name = os.path.basename(path)
-    chip_name = chip_name[:chip_name.find('.dig')]
-    p = ET.parse(path).getroot()
-    pinout = {}
-    size = 0
-    visualElements = None # will contain all pins
-    for child in p:
-        if child.tag == 'visualElements':
-            visualElements = child
-            break
-
-    for ve_list in visualElements:
-        valid = False
-        pin_name = None
-        pin_num = None
-        for ve_list_item in ve_list:
-            if ve_list_item.tag == 'elementName':
-                t = ve_list_item.text
-                if t == 'In' or t == 'Out':
-                    valid = True
-            if ve_list_item.tag == 'elementAttributes':
-                for a in ve_list_item:
-                    check = False
-                    label = None
-                    for b in a:
-                        if b.tag == 'string':
-                            if not b.text == 'Label':
-                                label = b.text
-                            else:
-                                check = True
-                    if check:
-                        pin_name = label
-
-                for a in ve_list_item:
-                    check1 = False
-                    num = None
-                    for b in a:
-                        if b.tag == 'string':
-                            if not b.text == 'pinNumber':
-                                num = b.text
-                            else:
-                                check1 = True
-                    if check1:
-                        pinout[pin_name] = num
-                        if int(num) > size:
-                            size = int(num)
-    sizes[chip_name] = size
-    pinouts[chip_name] = pinout
-    # print(chip_name, size, pinout, sep='    \t')
-
-
+pinouts, sizes = generate_pinouts(footprint_path)
 
 # Parse yosys JSON
 with open(json_path) as fp:
