@@ -164,7 +164,7 @@ def generate_pinouts(lib_74_path):
                                 size = int(num)
         sizes[chip_name] = size
         pinouts[chip_name] = pinout
-        print(chip_name, pinout)
+        # print(chip_name, pinout)
     return pinouts, sizes
 
 
@@ -224,6 +224,10 @@ if KICAD:
 # Pass 1 - add internal nets
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
+
+    # TODO: eventually remove this hotfix
+    if ic_type == '\\28c256_rdonly':
+        top['cells'][c]['type'] = '\\28c256'
 
     wires = top['cells'][c]['connections']
 
