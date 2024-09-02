@@ -182,12 +182,14 @@ netlist = {}
 for k in top['ports']:
     port = top['ports'][k]
     bits = port['bits']
+
+    is_bus = len(bits) > 1
     # print(k, bits)
     for i in range(len(bits)):
         bit = int(bits[i]) # this will turn VCC and GND nets from strings to ints
         name = k
-        if i > 0:
-            name = name + str(i)
+        if is_bus:
+            name = name + '[%s]' % str(i)
         netlist[bit] = name
 
 # print('IO ports:', netlist)
