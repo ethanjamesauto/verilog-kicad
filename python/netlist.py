@@ -7,13 +7,13 @@ import glob
 import os
 import xml.etree.ElementTree as ET
 
-footprint_path = '../74xx/**/**.dig'
+footprint_path = '../pinouts/**/**/**.dig'
 json_path = '../out.json'
-top_level_module = 'test2'
+top_level_module = 'card7'
 
 if KICAD:
     import pcbnew as pb # type: ignore
-    footprint_path = 'C:/Users/Ethan/Documents/Digital/lib/DIL Chips/74xx/**/**.dig'
+    footprint_path = 'C:\\Users\\Ethan\\Documents\\Digital\\lib\\DIL Chips\\**\\**.dig'
     json_path = '\\\\wsl$\\Ubuntu\\home\\ethan\\verilog-kicad\\out.json'
     lib_path = 'C:/Program Files/KiCad/8.0/share/kicad/footprints/'
     board_path = 'C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog_kicad_test.kicad_pcb'
@@ -56,7 +56,7 @@ def add_gate_to_IC(ic_type, wires, i):
             m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
             board.Add(m)
             kicad_ic_list.append(m)
-            m.SetReference(ic_type + '_' + str(i) + '_gen')
+            m.SetReference(chip_name + '_g' + str(i))
 
             # Tie VCC and GND
             # print(pinout, netlist)
@@ -115,7 +115,7 @@ def generate_pinouts(lib_74_path):
     """Generate pinouts from 74xx lib"""
     pinouts = {}
     sizes = {}
-    paths = glob.glob(lib_74_path)
+    paths = glob.glob(lib_74_path, recursive=True)
     for path in paths:
         chip_name = os.path.basename(path)
         chip_name = chip_name[:chip_name.find('.dig')]
@@ -131,8 +131,6 @@ def generate_pinouts(lib_74_path):
         for ve_list in visualElements:
             pin_name = None
             for ve_list_item in ve_list:
-                if ve_list_item.tag == 'elementName':
-                    t = ve_list_item.text
                 if ve_list_item.tag == 'elementAttributes':
                     for a in ve_list_item:
                         check = False
@@ -156,11 +154,15 @@ def generate_pinouts(lib_74_path):
                                 else:
                                     check1 = True
                         if check1:
+                            # Process the name
+                            pin_name = pin_name.replace('/', 'not')
+
                             pinout[pin_name] = num
                             if int(num) > size:
                                 size = int(num)
         sizes[chip_name] = size
         pinouts[chip_name] = pinout
+        print(chip_name, pinout)
     return pinouts, sizes
 
 
@@ -218,7 +220,6 @@ if KICAD:
 # Pass 1 - add internal nets
 for c in top['cells'].keys():
     ic_type = top['cells'][c]['type']
-    assert ic_type.startswith('\\74')
 
     wires = top['cells'][c]['connections']
 
