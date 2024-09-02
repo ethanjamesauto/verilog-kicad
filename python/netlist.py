@@ -21,7 +21,9 @@ if KICAD:
 
 
 
-def get_footprint_name(num_pins):
+def get_footprint_name(ic_type, num_pins):
+    if ic_type.startswith('28'):
+        return 'DIP-%d_W15.24mm' % num_pins
     return 'DIP-%d_W7.62mm' % num_pins
 
 # # of gates per 74 series ic (example '74AC04_6x1NOT' returns 6)
@@ -46,7 +48,7 @@ def add_gate_to_IC(ic_type, wires, i):
     # print(ic_type, wires)
     chip_name = gate_name_to_chip(ic_type)
     pinout = pinouts[chip_name]
-    footprint = get_footprint_name(sizes[chip_name])
+    footprint = get_footprint_name(ic_type, sizes[chip_name])
 
     gate_list = gate_build[ic_type]
     chip_gate_cnt = gate_count(ic_type)
@@ -268,7 +270,7 @@ for c in top['cells'].keys():
     
     size = sizes[ic_type]            # get pinout size
     wires = top['cells'][c]['connections']
-    footprint = get_footprint_name(size)
+    footprint = get_footprint_name(ic_type, size)
 
     # create footprint and position
     if KICAD:
