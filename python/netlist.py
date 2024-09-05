@@ -37,6 +37,9 @@ def gate_name_to_chip(ic_type):
 # list of all ics added to board
 kicad_ic_list = []
 
+# maps all kicad ICs to net names
+kicad_netlist = {}
+
 # global variables for add_gate_to_IC
 gate_build = {} # stores the 74-series chips currently being built from individual gates. maps ic_type -> list of kicad footprints
 gate_build_ctr = {} # maps ic_type -> # of gates currently used in the footprint being built (the one not completed yet)
@@ -58,7 +61,9 @@ def add_gate_to_IC(ic_type, wires, i):
             m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
             board.Add(m)
             kicad_ic_list.append(m)
-            m.SetReference(chip_name + '_g' + str(i))
+            ref_str = chip_name + '_g' + str(i)
+            kicad_netlist[ref_str] = set()
+            m.SetReference(ref_str)
 
             # Tie VCC and GND
             # print(pinout, netlist)
@@ -101,6 +106,7 @@ def add_gate_to_IC(ic_type, wires, i):
 
         if KICAD:
             m.Pads()[pin_num-1].SetNetCode(netlist[wire].GetNetCode())
+            kicad_netlist[m.GetReference()].add(netlist[wire].GetNetCode())
         if VERBOSE:
             print('%s->%s->%d' % (wire_name, new_name, pin_num), end='\t')
         
@@ -187,14 +193,14 @@ for k in top['ports']:
 
     is_bus = len(bits) > 1
     # print(k, bits)
-    for i in range(len(bits)):
-        if (bits[i] == 'x'): # TODO: check this
-            print("Warning: Skipping bit %s of port %s" % (i, k))
+    for a in range(len(bits)):
+        if (bits[a] == 'x'): # TODO: check this
+            print("Warning: Skipping bit %s of port %s" % (a, k))
             continue
-        bit = int(bits[i]) # this will turn VCC and GND nets from strings to ints
+        bit = int(bits[a]) # this will turn VCC and GND nets from strings to ints
         name = k
         if is_bus:
-            name = name + '[%s]' % str(i)
+            name = name + '[%s]' % str(a)
         netlist[bit] = name
 
 # print('IO ports:', netlist)
@@ -220,14 +226,14 @@ if KICAD:
     else:
         print("Warning: IO header has more than 40 wires - skipping")
 
-    i = 0
+    a = 0
     for key in netlist.keys():
         net = pb.NETINFO_ITEM(board, netlist[key])
         board.Add(net)
         netlist[key] = net
         if (num_ios <= 40):
-            m.Pads()[i].SetNetCode(net.GetNetCode())
-        i += 1
+            m.Pads()[a].SetNetCode(net.GetNetCode())
+        a += 1
 
 # Pass 1 - add internal nets
 for c in top['cells'].keys():
@@ -287,7 +293,9 @@ for c in top['cells'].keys():
         m = pb.FootprintLoad(lib_path + 'Package_DIP.pretty', footprint)
         board.Add(m)
         kicad_ic_list.append(m)
-        m.SetReference(ic_type + '_' + str(chip_cnt))
+        ref_str = ic_type + '_' + str(chip_cnt)
+        kicad_netlist[ref_str] = set()
+        m.SetReference(ref_str)
         print('Added: ' + ic_type)
 
     for k in wires.keys():
@@ -298,25 +306,70 @@ for c in top['cells'].keys():
         if KICAD:
             pin_name = k.replace('\\', '')
             pin_num = pinouts[ic_type][pin_name]
-            m.Pads()[int(pin_num)-1].SetNetCode(netlist[wire].GetNetCode())
+            net_code = netlist[wire].GetNetCode()
+            kicad_netlist[m.GetReference()].add(net_code)
+            m.Pads()[int(pin_num)-1].SetNetCode(net_code)
             # print(ic_type, pin_name, pin_num)
     chip_cnt += 1
 
 # position ICs on board
-side_len = int(round(len(kicad_ic_list)**.5))
+N = len(kicad_ic_list)
+side_len = int(round(N**.5))
 aspect = 2
-spacing = 20
-spacing_factor = 1.5
+spacing = 14
+spacing_factor = 1.75
 side_len *= aspect
-print('Total # of ICs: %d' % len(kicad_ic_list))
+print('Total # of ICs: %d' % N)
 
-for i in range(len(kicad_ic_list)):
-    x = i % side_len
-    y = i // side_len
-    m = kicad_ic_list[i]
-    m.SetX(pb.pcbIUScale.mmToIU(x*spacing + 40))
-    m.SetY(pb.pcbIUScale.mmToIU(y*spacing*spacing_factor + 40))
+import numpy as np
+pos_arr = np.zeros((N, 2))
+weights = np.zeros((N, N))
+
+# set initial locations
+for a in range(N):
+    x = a % side_len
+    y = a // side_len
+    m = kicad_ic_list[a]
+    pos_arr[a, :] = [x*spacing+40, y*spacing*spacing_factor+40]
+
+# build weights:
+for a in range(N):
+    for b in range(N):
+        if a != b:
+            weights[a][b] = len(kicad_netlist[kicad_ic_list[a].GetReference()].intersection(kicad_netlist[kicad_ic_list[b].GetReference()]))
+
+def mse_slow(pos):
+    err = 0
+    for i in range(N):
+        for j in range(N):
+            err += np.linalg.norm(pos[i, :] - pos[j, :])**2 * weights[i][j]
+    return err
+
+def mse(pos):
+    err = np.sum(np.linalg.norm(pos[np.newaxis, :, :] - pos[:, np.newaxis, :], axis=2)**2 * weights)
+    return err
+
+# try to optimize layout
+curr_err = mse(pos_arr)
+for i in range(50000):
+    a = np.random.randint(0, N)
+    b = np.random.randint(0, N)
+    pos_arr[[a, b]] = pos_arr[[b, a]]
+    new_err = mse(pos_arr)
+    if new_err > curr_err:
+        pos_arr[[a, b]] = pos_arr[[b, a]]
+    elif new_err < curr_err:
+        print("Iteration: %d\tNew error: %d" % (i, new_err))
+        curr_err = new_err
+
+# now set component locations
+for a in range(N):
+    m = kicad_ic_list[a]
+    m.SetX(pb.pcbIUScale.mmToIU(pos_arr[a, 0]))
+    m.SetY(pb.pcbIUScale.mmToIU(pos_arr[a, 1]))
+
 
 if KICAD:
     board.Save(board_path)
     print('Board saved to %s' % board_path)
+    print(weights)
