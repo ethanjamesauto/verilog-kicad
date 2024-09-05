@@ -342,25 +342,52 @@ def mse_slow(pos):
     err = 0
     for i in range(N):
         for j in range(N):
-            err += np.linalg.norm(pos[i, :] - pos[j, :])**2 * weights[i][j]
+            err += np.linalg.norm(pos[i, :] - pos[j, :])**2 * weights[i][j]**4
     return err
 
 def mse(pos):
-    err = np.sum(np.linalg.norm(pos[np.newaxis, :, :] - pos[:, np.newaxis, :], axis=2)**2 * weights)
+    err = np.sum(np.linalg.norm(pos[np.newaxis, :, :] - pos[:, np.newaxis, :], axis=2)**2 * weights**4)
     return err
 
 # try to optimize layout
 curr_err = mse(pos_arr)
-for i in range(50000):
-    a = np.random.randint(0, N)
-    b = np.random.randint(0, N)
-    pos_arr[[a, b]] = pos_arr[[b, a]]
-    new_err = mse(pos_arr)
-    if new_err > curr_err:
-        pos_arr[[a, b]] = pos_arr[[b, a]]
-    elif new_err < curr_err:
-        print("Iteration: %d\tNew error: %d" % (i, new_err))
+cnt = 0
+old_designs = []
+for i in range(500000):
+    pos_arr_new = pos_arr.copy()
+
+    for j in range(1 + (i % 10 == 0)):
+        a = np.random.randint(0, N)
+        b = np.random.randint(0, N)
+        pos_arr_new[[a, b]] = pos_arr_new[[b, a]]
+    
+    new_err = mse(pos_arr_new)
+    if new_err < curr_err:
+        print("Iteration: %d   \tNew error: %f" % (i, 10*np.log10(new_err)))
         curr_err = new_err
+        pos_arr = pos_arr_new
+        cnt = 0
+    else:
+        cnt += 1
+
+    if cnt == 5000:
+        old_designs.append(pos_arr)
+        cnt = 0
+        for j in range(30):
+            a = np.random.randint(0, N)
+            b = np.random.randint(0, N)
+            pos_arr_new[[a, b]] = pos_arr_new[[b, a]]
+        curr_err = mse(pos_arr_new)
+        pos_arr = pos_arr_new
+
+best = old_designs[0]
+for design in old_designs:
+    if mse(design) < mse(best):
+        best = design
+
+pos_arr = best
+
+print('Final error:', 10*np.log10(mse(pos_arr)))
 
 # now set component locations
 for a in range(N):
