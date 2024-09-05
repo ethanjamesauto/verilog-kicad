@@ -9,12 +9,12 @@ import xml.etree.ElementTree as ET
 
 footprint_path = '../pinouts/**/**/**.dig'
 json_path = '../out.json'
-top_level_module = 'card7'
+top_level_module = 'shift_card'
 
 if KICAD:
     import pcbnew as pb # type: ignore
-    footprint_path = 'C:\\Users\\Ethan\\Documents\\Digital\\lib\\DIL Chips\\**\\**.dig'
-    json_path = '\\\\wsl$\\Ubuntu\\home\\ethan\\verilog-kicad\\out.json'
+    footprint_path = 'C:/Users/Ethan/Documents/Digital/lib/DIL Chips/**/**.dig'
+    json_path = '//wsl$/Ubuntu/home/ethan/verilog-kicad/out.json'
     lib_path = 'C:/Program Files/KiCad/8.0/share/kicad/footprints/'
     board_path = 'C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog_kicad_test.kicad_pcb'
     board = pb.BOARD()
@@ -94,10 +94,10 @@ def add_gate_to_IC(ic_type, wires, i):
         if wire_name == 'CLK':
             if added_new_IC:
                 gate_build_clk_net[chip_name] = wire
-            assert gate_build_clk_net[chip_name] == wire, 'Placement failed - tried to add flip-flop to IC with existing clock net ' \
+            assert gate_build_clk_net[chip_name] == wire, 'Error: Placement failed - tried to add flip-flop to IC with existing clock net ' \
                 + str(gate_build_clk_net[chip_name]) + ', new clock net is ' + str(wire)
         else:
-            assert pin_num not in gate_build_pins[chip_name], 'Placement failed - attempted to re-assign pin'
+            assert pin_num not in gate_build_pins[chip_name], 'Error: Placement failed - attempted to re-assign pin'
 
         if KICAD:
             m.Pads()[pin_num-1].SetNetCode(netlist[wire].GetNetCode())
@@ -188,6 +188,9 @@ for k in top['ports']:
     is_bus = len(bits) > 1
     # print(k, bits)
     for i in range(len(bits)):
+        if (bits[i] == 'x'): # TODO: check this
+            print("Warning: Skipping bit %s of port %s" % (i, k))
+            continue
         bit = int(bits[i]) # this will turn VCC and GND nets from strings to ints
         name = k
         if is_bus:
@@ -198,27 +201,32 @@ for k in top['ports']:
 
 # if there are no VCC and GND nets, create them now
 if 0 not in netlist.keys():
-    print('Note: Adding GND Net')
+    print('Warning: No GND net found in design - adding GND Net')
     wire = 0
     netlist[wire] = 'GND'
 if 1 not in netlist.keys():
-    print('Note: Adding VCC Net')
+    print('Warning: No VCC net found in design - adding VCC Net')
     wire = 1
     netlist[wire] = 'VCC'
 
 # Add nets to the kicad schematic
 if KICAD:
-    ftprt = 'PinHeader_1x' + str(len(netlist.keys())) + '_P2.54mm_Vertical'
-    print('Header Footprint: ' + ftprt);
-    m = pb.FootprintLoad(lib_path + 'Connector_PinHeader_2.54mm.pretty', ftprt)
-    board.Add(m)
+    num_ios = len(netlist.keys())
+    if (num_ios <= 40):
+        ftprt = 'PinHeader_1x' + str(num_ios) + '_P2.54mm_Vertical'
+        print('Header Footprint: ' + ftprt);
+        m = pb.FootprintLoad(lib_path + 'Connector_PinHeader_2.54mm.pretty', ftprt)
+        board.Add(m)
+    else:
+        print("Warning: IO header has more than 40 wires - skipping")
 
     i = 0
     for key in netlist.keys():
         net = pb.NETINFO_ITEM(board, netlist[key])
         board.Add(net)
         netlist[key] = net
-        m.Pads()[i].SetNetCode(net.GetNetCode())
+        if (num_ios <= 40):
+            m.Pads()[i].SetNetCode(net.GetNetCode())
         i += 1
 
 # Pass 1 - add internal nets
@@ -254,8 +262,6 @@ for c in top['cells'].keys():
     wires = top['cells'][c]['connections']
 
     if ic_type.startswith('\\74AC'):
-        # print(c, ic_type)
-
         # see if this type exists in gate builder
         if ic_type not in gate_build:
             gate_build[ic_type] = []
