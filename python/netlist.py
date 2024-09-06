@@ -2,6 +2,7 @@
 KICAD = True
 VERBOSE = False
 
+from tqdm import tqdm
 import json
 import glob
 import os
@@ -191,12 +192,22 @@ for k in top['ports']:
     port = top['ports'][k]
     bits = port['bits']
 
+    if k == 'VCC':
+        assert len(bits) == 1
+        bits[0] = 1
+    elif k == 'GND':
+        assert len(bits) == 1
+        bits[0] = 0
+
     is_bus = len(bits) > 1
     # print(k, bits)
     for a in range(len(bits)):
         if (bits[a] == 'x'): # TODO: check this
             print("Warning: Skipping bit %s of port %s" % (a, k))
             continue
+        if (k.startswith('__')):
+            print("Warning: Skipping port %s" % k)
+            continue            
         bit = int(bits[a]) # this will turn VCC and GND nets from strings to ints
         name = k
         if is_bus:
@@ -315,10 +326,15 @@ for c in top['cells'].keys():
 # position ICs on board
 N = len(kicad_ic_list)
 side_len = int(round(N**.5))
-aspect = 2
+aspect = 2.5
 spacing = 12
 spacing_factor = 1.75
 side_len *= aspect
+side_len = int(side_len)
+
+# override side_len
+side_len = 13
+
 print('Total # of ICs: %d' % N)
 
 import numpy as np
@@ -353,27 +369,30 @@ def mse(pos):
 curr_err = mse(pos_arr)
 cnt = 0
 old_designs = []
-for i in range(150000):
+
+np.random.seed(1)
+
+for i in tqdm(range(200000)):
     pos_arr_new = pos_arr.copy()
 
-    for j in range(1 + (i % 10 == 0)):
+    for j in range(1):
         a = np.random.randint(0, N)
         b = np.random.randint(0, N)
         pos_arr_new[[a, b]] = pos_arr_new[[b, a]]
     
     new_err = mse(pos_arr_new)
     if new_err < curr_err:
-        print("Iteration: %d   \tNew error: %f" % (i, 10*np.log10(new_err)))
+        # print("Iteration: %d   \tNew error: %f" % (i, 10*np.log10(new_err)))
         curr_err = new_err
         pos_arr = pos_arr_new
         cnt = 0
     else:
         cnt += 1
 
-    if cnt == 5000:
+    if cnt == 500:
         old_designs.append(pos_arr.copy())
         cnt = 0
-        for j in range(10):
+        for j in range(5):
             a = np.random.randint(0, N)
             b = np.random.randint(0, N)
             pos_arr[[a, b]] = pos_arr[[b, a]]
@@ -395,4 +414,3 @@ for a in range(N):
 if KICAD:
     board.Save(board_path)
     print('Board saved to %s' % board_path)
-    print(weights)
