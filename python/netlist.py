@@ -316,7 +316,7 @@ for c in top['cells'].keys():
 N = len(kicad_ic_list)
 side_len = int(round(N**.5))
 aspect = 2
-spacing = 14
+spacing = 12
 spacing_factor = 1.75
 side_len *= aspect
 print('Total # of ICs: %d' % N)
@@ -353,7 +353,7 @@ def mse(pos):
 curr_err = mse(pos_arr)
 cnt = 0
 old_designs = []
-for i in range(500000):
+for i in range(150000):
     pos_arr_new = pos_arr.copy()
 
     for j in range(1 + (i % 10 == 0)):
@@ -371,21 +371,17 @@ for i in range(500000):
         cnt += 1
 
     if cnt == 5000:
-        old_designs.append(pos_arr)
+        old_designs.append(pos_arr.copy())
         cnt = 0
-        for j in range(30):
+        for j in range(10):
             a = np.random.randint(0, N)
             b = np.random.randint(0, N)
-            pos_arr_new[[a, b]] = pos_arr_new[[b, a]]
-        curr_err = mse(pos_arr_new)
-        pos_arr = pos_arr_new
+            pos_arr[[a, b]] = pos_arr[[b, a]]
+        curr_err = mse(pos_arr)
 
-best = old_designs[0]
 for design in old_designs:
-    if mse(design) < mse(best):
-        best = design
-
-pos_arr = best
+    if mse(design) < mse(pos_arr):
+        pos_arr = design
 
 print('Final error:', 10*np.log10(mse(pos_arr)))
 
