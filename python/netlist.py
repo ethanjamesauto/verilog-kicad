@@ -17,8 +17,9 @@ if KICAD:
     footprint_path = 'C:/Users/Ethan/Documents/Digital/lib/DIL Chips/**/**.dig'
     json_path = '//wsl$/Ubuntu/home/ethan/verilog-kicad/out.json'
     lib_path = 'C:/Program Files/KiCad/8.0/share/kicad/footprints/'
-    board_path = 'C:/Users/Ethan/Desktop/modular_8bit_computer/verilog_kicad_test/verilog_kicad_test.kicad_pcb'
-    board = pb.BOARD()
+    board_path_in = 'C:/Users/Ethan/Desktop/modular_8bit_computer/base_card_for_verilog_kicad/smaller_card/smaller_card.kicad_pcb'
+    board_path = 'C:/Users/Ethan/Desktop/modular_8bit_computer/base_card_for_verilog_kicad/smaller_card/smaller_card_out.kicad_pcb'
+    board = pb.LoadBoard(board_path_in)
 
 
 
@@ -209,9 +210,9 @@ for k in top['ports']:
             print("Warning: Skipping port %s" % k)
             continue            
         bit = int(bits[a]) # this will turn VCC and GND nets from strings to ints
-        name = k
+        name = '/' + k # kicad nets start with a '/'
         if is_bus:
-            name = name + '[%s]' % str(a)
+            name = name + '%s' % str(a)
         netlist[bit] = name
 
 # print('IO ports:', netlist)
@@ -346,7 +347,7 @@ for a in range(N):
     x = a % side_len
     y = a // side_len
     m = kicad_ic_list[a]
-    pos_arr[a, :] = [x*spacing+40, y*spacing*spacing_factor+40]
+    pos_arr[a, :] = [x*spacing-40, y*spacing*spacing_factor-40]
 
 # build weights:
 for a in range(N):
