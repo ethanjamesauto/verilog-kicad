@@ -333,7 +333,8 @@ for c in top['cells'].keys():
 N = len(kicad_ic_list)
 side_len = int(round(N**.5))
 aspect = 2.5
-spacing = 12
+spacing_x = 17
+spacing_y = 25
 spacing_factor = 1.75
 side_len *= aspect
 side_len = int(side_len)
@@ -352,7 +353,7 @@ for a in range(N):
     x = a % side_len
     y = a // side_len
     m = kicad_ic_list[a]
-    pos_arr[a, :] = [x*spacing-40, y*spacing*spacing_factor-40]
+    pos_arr[a, :] = [x*spacing_x-40, y*spacing_y-40]
 
 # build weights:
 for a in range(N):
