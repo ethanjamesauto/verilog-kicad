@@ -88,10 +88,12 @@ def add_gate_to_IC(ic_type, wires, i):
     for wire_name in wires:
         if chip_name == '74374' or chip_name == '7474' or chip_name == '74273':
             new_name = wire_name + str(gate_num - 1)
+        elif chip_name == '74257':
+            new_name = wire_name + str(gate_num)
         else:
             new_name = str(gate_num) + wire_name
 
-        if wire_name == 'CLK':
+        if wire_name == 'CLK' or wire_name == 'S':
             new_name = wire_name
 
         assert len(wires[wire_name]) == 1
@@ -206,11 +208,14 @@ for k in top['ports']:
         if (bits[a] == 'x'): # TODO: check this
             print("Warning: Skipping bit %s of port %s" % (a, k))
             continue
-        if (k.startswith('__')):
-            print("Warning: Skipping port %s" % k)
-            continue            
+        # if (k.startswith('__')):
+        #     print("Warning: Skipping port %s" % k)
+        #     continue            
         bit = int(bits[a]) # this will turn VCC and GND nets from strings to ints
-        name = '/' + k # kicad nets start with a '/'
+        if (bit == 0 or bit == 1):
+            name = k
+        else:
+            name = '/' + k # kicad nets start with a '/'
         if is_bus:
             name = name + '%s' % str(a)
         netlist[bit] = name
@@ -373,7 +378,7 @@ old_designs = []
 
 np.random.seed(1)
 
-for i in tqdm(range(200000)):
+for i in tqdm(range(100000)):
     pos_arr_new = pos_arr.copy()
 
     for j in range(1):
